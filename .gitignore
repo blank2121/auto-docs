@@ -1,0 +1,8 @@
+Cargo.lock
+target/
+web/node_modules/
+web/dist/
+web/package.json
+web/package-lock.json
+web/svelte.config.js
+web/tsconfig.json
