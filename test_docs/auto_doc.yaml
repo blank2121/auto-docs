@@ -1,0 +1,14 @@
+# Configuration file for My Documentation Project
+# powered by chatgpt-3.5-turbo so promts are like asking a person
+
+system_prompt: "given a file of code, create documentation for each function/primary aspect of the code"
+lang_specific_information: ""
+ignore_files:
+  - auto_doc.yaml
+  - target/
+  - Cargo.lock
+
+include_function_examples: true
+function_description_length: "max length of a paragraph and a half. try to keep it concise"
+ignore_private_functions: true
+include_overall_summary: true
