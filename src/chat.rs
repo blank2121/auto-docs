@@ -1,40 +1,92 @@
 use reqwest::Client;
-use serde::Serialize;
-use serde::Deserialize;
-use serde_json; 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::error::Error;
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
-use serde_yaml;
+use std::vec::Vec;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Request {
+pub enum Role {
+    user,
+    system,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Message {
+    pub role: Role,
+    pub content: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GptRequest {
     model: String,
     messages: Vec<Message>,
     temperature: f32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Message {
-    role: String,
-    content: String,
+impl GptRequest {
+    pub fn new(messages: Vec<Message>, temperature: f32) -> Self {
+        GptRequest {
+            model: "gpt-3.5-turbo".to_string(),
+            messages,
+            temperature,
+        }
+    }
+
+    pub async fn send_request(
+        &self,
+        api_key: &str,
+        raw_response: bool,
+    ) -> Result<Vec<String>, GptError> {
+        let endpoint = "https://api.openai.com/v1/chat/completions";
+
+        let client = Client::new();
+
+        let res = client
+            .post(endpoint)
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", api_key))
+            .json(self)
+            .send()
+            .await;
+        let body = res
+            .map_err(|e| GptError::ApiError(format!("request failed: {}", e)))?
+            .text()
+            .await
+            .map_err(|e| GptError::ApiError(format!("response error: {}", e)))?;
+        let body: Value = serde_json::from_str(&body)?;
+        // dbg!(&body);
+
+        let mut responses: Vec<String> = vec![];
+        for data in body["choices"].as_array().unwrap() {
+            let content = &data["message"]["content"];
+            if raw_response {
+                responses.push(content.to_string()
+                               .replace(r"\\n", r"\n")
+                               .replace("\\\"", "")
+                               );
+            } else {
+                responses.push(content.to_string().replace("\n", " "));
+            }
+        }
+
+        Ok(responses)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
-   system_prompt: String,
-   lang_specific_information: String,
-   ignore_files: Vec<String>,
-   include_function_examples: bool,
-   function_description_length: String,
-   ignore_private_functions: bool,
-   include_overall_summary: bool,
+    system_prompt: String,
+    lang_specific_information: String,
+    ignore_files: Vec<String>,
+    function_description_length: String,
+    include_overall_summary: bool,
 }
 
 impl Config {
-    pub fn new(system_prompt: String, lang_specific_information: String, ignore_files: Vec<String>, include_function_examples: bool, function_description_length: String, ignore_private_functions: bool, include_overall_summary: bool) -> Self { Self { system_prompt, lang_specific_information, ignore_files, include_function_examples, function_description_length, ignore_private_functions, include_overall_summary } }
-
-    pub fn load_file(directory: &str) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load_file(directory: &str) -> Result<Self, Box<dyn Error>> {
         let file_path = format!("{}/auto_doc.yaml", directory);
         let mut file = File::open(file_path)?;
         let mut contents = String::new();
@@ -42,91 +94,44 @@ impl Config {
 
         let config: Config = serde_yaml::from_str(&contents)?;
 
+        
+
         Ok(config)
     }
+
+    pub fn config_to_system_prompt(&self) -> Result<Message, Box<dyn Error>> {
+        let message = Message {
+            role: Role::system,
+            content: format!("{}. Addional language specific information: {}.
+                             description length in the documentation: {}",
+                             &self.system_prompt,
+                             &self.lang_specific_information,
+                             &self.function_description_length
+                             ).to_string(),
+        };
+        Ok(message)
+    }
 }
 
-pub async fn gpt_request_user(api_key: &str, content: &str) -> Option<Vec<String>> {
-    let endpoint = "https://api.openai.com/v1/chat/completions";
-
-    let client = Client::new();
-
-    let request = Request {
-        model: "gpt-3.5-turbo".to_string(),
-        messages: vec![Message {
-            role: "user".to_string(),
-            content: content.to_string(),
-        }],
-        temperature: 0.7,
-    };
-
-    let res = client
-        .post(endpoint)
-        .header("Content-Type", "application/json")
-        .header("Authorization", format!("Bearer {}", api_key))
-        .json(&request)
-        .send()
-        .await;
-
-    let body = res.expect("request failed").text().await;
-    let body: Value = serde_json::from_str(&body.unwrap() as &str).unwrap();
-
-    let mut responces: Vec<String> = vec![];
-
-    for data in body["choices"].as_array().unwrap() {
-        responces.push(data["message"]["content"].to_string());
-    }
-    Some(responces)
+#[derive(Debug)]
+pub enum GptError {
+    ApiError(String),
+    JsonError(serde_json::Error),
 }
 
-pub async fn gpt_request_system(api_key: &str, config: Option<Config>, content: &str) -> Option<Vec<String>> {
-    let endpoint = "https://api.openai.com/v1/chat/completions";
-
-    let client = Client::new();
-
-    if config.is_some() {
-        content = format!("Your goal is to create documentation of code that is given
-                          to you. the rest of this prompt is so you understand what to do specifically
-                          and they will be in logic form, like use english: true.
-                          {sys_prompt}. language specific information: {lang_info}. 
-                          include example code for functions: {func_examples}.
-                          function description length: {func_descr_len}.
-                          ignore private functions: {private_func}.
-                          make a summary for the code overall: {summary}",
-                          sys_prompt=config?.system_prompt,
-                          lang_info=config?.lang_specific_information,
-                          func_examples=config?.include_function_examples,
-                          func_descr_len=config?.function_description_length,
-                          private_func=config?.ignore_private_functions,
-                          summary=config?.include_overall_summary);
-
+impl fmt::Display for GptError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            GptError::ApiError(e) => write!(f, "ApiError: {}", e),
+            GptError::JsonError(e) => write!(f, "JsonError: {}", e),
+        }
     }
-
-    let request = Request {
-        model: "gpt-3.5-turbo".to_string(),
-        messages: vec![Message {
-            role: "system".to_string(),
-            content: content.to_string(),
-        }],
-        temperature: 0.7,
-    };
-
-    let res = client
-        .post(endpoint)
-        .header("Content-Type", "application/json")
-        .header("Authorization", format!("Bearer {}", api_key))
-        .json(&request)
-        .send()
-        .await;
-
-    let body = res.expect("request failed").text().await;
-    let body: Value = serde_json::from_str(&body.unwrap() as &str).unwrap();
-
-    let mut responces: Vec<String> = vec![];
-
-    for data in body["choices"].as_array().unwrap() {
-        responces.push(data["message"]["content"].to_string());
-    }
-    Some(responces)
 }
 
+impl Error for GptError {}
+
+impl From<serde_json::Error> for GptError {
+    fn from(err: serde_json::Error) -> GptError {
+        GptError::JsonError(err)
+    }
+}

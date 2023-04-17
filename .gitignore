@@ -6,3 +6,5 @@ web/package.json
 web/package-lock.json
 web/svelte.config.js
 web/tsconfig.json
+test_*
+src/v0.0.1_chat.rs

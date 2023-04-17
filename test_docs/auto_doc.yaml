@@ -1,14 +1,18 @@
 # Configuration file for My Documentation Project
 # powered by chatgpt-3.5-turbo so promts are like asking a person
+# the prompt will be exactly what is in the system prompt so be specific
 
-system_prompt: "given a file of code, create documentation for each function/primary aspect of the code"
-lang_specific_information: ""
+system_prompt: "here is my definition of documentation and how it should be made if you are asked
+  to make documentation. Firstly, you will only respond with the documentation and this is how you
+  will produce the documentation. In markdown, make a h2 title for the function name and underneath
+  write only the initialization line that definition of the function, underneath that write a brief
+  description, finally write a code example for how to use the function and off that function with
+  a line break."
+lang_specific_information: "none"
 ignore_files:
   - auto_doc.yaml
   - target/
   - Cargo.lock
 
-include_function_examples: true
 function_description_length: "max length of a paragraph and a half. try to keep it concise"
-ignore_private_functions: true
-include_overall_summary: true
+include_overall_summary: false
