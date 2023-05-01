@@ -8,6 +8,7 @@ use std::io::Read;
 use std::vec::Vec;
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(non_camel_case_types)]
 pub enum Role {
     user,
     system,
@@ -83,20 +84,20 @@ pub struct Config {
     ignore_files: Vec<String>,
     function_description_length: String,
     include_overall_summary: bool,
+    api_key: String,
 }
 
 impl Config {
-    pub fn load_file(directory: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn load_file(directory: &str) -> Result<(Self, String), Box<dyn Error>> {
         let file_path = format!("{}/auto_doc.yaml", directory);
         let mut file = File::open(file_path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
 
         let config: Config = serde_yaml::from_str(&contents)?;
+        let api_from_config: Config = serde_yaml::from_str(&contents)?;
 
-        
-
-        Ok(config)
+        Ok((config, api_from_config.api_key))
     }
 
     pub fn config_to_system_prompt(&self) -> Result<Message, Box<dyn Error>> {
