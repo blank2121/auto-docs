@@ -7,14 +7,14 @@ use std::fs::File;
 use std::io::Read;
 use std::vec::Vec;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[allow(non_camel_case_types)]
 pub enum Role {
     user,
     system,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Message {
     pub role: Role,
     pub content: String,
@@ -81,7 +81,7 @@ impl GptRequest {
 pub struct Config {
     system_prompt: String,
     lang_specific_information: String,
-    ignore_files: Vec<String>,
+    pub ignore_files: Vec<String>,
     function_description_length: String,
     include_overall_summary: bool,
     api_key: String,
