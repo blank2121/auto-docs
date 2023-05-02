@@ -13,6 +13,7 @@ ignore_files:
   - auto_doc.yaml
   - target/
   - Cargo.lock
+  - Cargo.toml
 
 function_description_length: "max length of a paragraph and a half. try to keep it concise"
 include_overall_summary: false
