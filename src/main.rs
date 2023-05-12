@@ -3,11 +3,25 @@
 
 pub mod chat;
 use tokio;
+use structopt::StructOpt;
 use std::fs::{File, read_dir, create_dir, metadata, OpenOptions};
 use std::io::{BufReader, Read, Write};
-use std::env::{args, current_dir, set_current_dir};
-use std::path::{Path, PathBuf};
+use std::env::{current_dir, set_current_dir};
+use std::path::PathBuf;
 use std::collections::HashSet;
+
+#[derive(StructOpt, Debug)]
+#[structopt(name = "auto-docs")]
+struct Opt {
+    /// Generate base auto_docs.yaml file
+    #[structopt(short = "c", long = "config")]
+    use_config: bool,
+
+    /// Changes working directory for auto-docs
+    #[structopt(short = "p", long = "path", parse(from_os_str))]
+    path: Option<PathBuf>,
+}
+
 
 fn folder_exists(folder_name: &str) -> bool {
     match metadata(folder_name) {
@@ -46,35 +60,73 @@ fn remove_duplicates(vec1: Vec<String>, vec2: Vec<String>) -> Vec<String> {
     result
 }
 
+fn create_auto_docs_file() -> std::io::Result<()> {
+    let mut file = File::create("auto_docs.yaml")?;
+
+    let contents = "# Configuration file for My Documentation Project
+# powered by chatgpt-3.5-turbo so promts are like asking a chat.openai.com
+# the prompt will be exactly what is in the system prompt so be specific
+
+system_prompt: \"here is my definition of documentation and how it should be made if you are asked
+  to make documentation. Firstly, you will only respond with the documentation and this is how you
+  will produce the documentation. In markdown, make a h2 title for the function name and underneath
+  write only the initialization line that definition of the function, underneath that write a brief
+  description, finally write a code example (h4) for how to use the function and end that function with
+  a line break.\"
+lang_specific_information: \"none\"
+ignore_files:
+  - 
+
+function_description_length: \"max length of a paragraph and a half. try to keep it concise\"
+include_overall_summary: false
+
+api_key: \"\"";
+
+    file.write_all(contents.as_bytes())?;
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-   let mut dir = current_dir()?.into_os_string().into_string().unwrap();
+    //let dir = current_dir()?.into_os_string().into_string().unwrap();
 
-    let cli_args: Vec<String> = args().skip(1).collect();
+    let opt = Opt::from_args();
+    
+    if opt.path.is_none() && !opt.use_config {
+        println!("No FLAGS or OPTIONS provided");
+        return Ok(());
+    }
 
-    if cli_args.len() > 0 {
-        if let Some(path) = cli_args.get(0) {
-            dir = path.to_string();
-        }
-    } 
-
-    set_current_dir(Path::new(&dir)).expect("Could not go to specified DIR");
+    if opt.path.is_some() {
+        set_current_dir(opt.path.unwrap()).expect("Could not change DIR");
+    }
+    if opt.use_config {
+        create_auto_docs_file().expect("Could not create config file");
+        println!("\nCreated base auto_docs.yaml file!");
+        return Ok(());
+    }
 
     let (system_config, api_key): (chat::Config, String) = chat::Config::load_file(
         &current_dir()?
         .into_os_string()
         .into_string()
         .unwrap()
-        ).expect("Could not find auto-doc.yaml file");
+        ).expect("Could not find auto-docs.yaml file");
 
 
-
-
-    let ignores = &system_config.ignore_files;
+    let mut ignores = system_config.ignore_files.clone();
+    if !ignores.contains(&"auto_docs.yaml".to_string()) {
+        ignores.push("auto_docs.yaml".to_string());
+    }
+    if !ignores.contains(&"generated_docs".to_string()) {
+        ignores.push("generated_docs".to_string());
+    }
     let ignores = ignores.iter().map(|x| PathBuf::from(x)).collect::<Vec<PathBuf>>();
     let system_config = &system_config.config_to_system_prompt();
     let file_in_cwd = get_files_in_dirs(vec![current_dir()?.into_os_string().into_string().unwrap().into()]);
-    let ignores = get_files_in_dirs(ignores);
+    let mut ignores = get_files_in_dirs(ignores);
+    ignores.retain(|x| x.exists());
     let ignores = ignores.iter().map(|x| x.canonicalize().unwrap()).collect::<Vec<PathBuf>>();
     let files_to_read = remove_duplicates(ignores
                                           .iter()

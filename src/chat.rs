@@ -89,7 +89,7 @@ pub struct Config {
 
 impl Config {
     pub fn load_file(directory: &str) -> Result<(Self, String), Box<dyn Error>> {
-        let file_path = format!("{}/auto_doc.yaml", directory);
+        let file_path = format!("{}/auto_docs.yaml", directory);
         let mut file = File::open(file_path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
