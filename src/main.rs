@@ -9,6 +9,7 @@ use std::io::{BufReader, Read, Write};
 use std::env::{current_dir, set_current_dir};
 use std::path::PathBuf;
 use std::collections::HashSet;
+use std::panic;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "auto-docs")]
@@ -89,8 +90,6 @@ api_key: \"\"";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    //let dir = current_dir()?.into_os_string().into_string().unwrap();
-
     let opt = Opt::from_args();
     
     if opt.path.is_none() && !opt.use_config {
@@ -107,12 +106,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    let (system_config, api_key): (chat::Config, String) = chat::Config::load_file(
+    let (system_config, api_key): (chat::Config, String) = match chat::Config::load_file(
         &current_dir()?
         .into_os_string()
         .into_string()
         .unwrap()
-        ).expect("Could not find auto-docs.yaml file");
+        ) {
+        Ok(x) => {x},
+        Err(_) => {
+            panic::set_hook(Box::new(|_| {
+                println!("Could not find auto_docs.yaml or not all config parmeters were filled out");
+            }));
+
+            panic!("test");
+        },
+    };
 
 
     let mut ignores = system_config.ignore_files.clone();
