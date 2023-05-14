@@ -92,11 +92,6 @@ api_key: \"\"";
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
     
-    if opt.path.is_none() && !opt.use_config {
-        println!("No FLAGS or OPTIONS provided");
-        return Ok(());
-    }
-
     if opt.path.is_some() {
         set_current_dir(opt.path.unwrap()).expect("Could not change DIR");
     }
