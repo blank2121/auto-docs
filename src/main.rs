@@ -144,6 +144,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                           .collect::<Vec<String>>()); 
     
 
+    if files_to_read.len() < 1 {
+        panic::set_hook(Box::new(|_| {
+            println!("No files to make documentation for");
+        }));
+
+        panic!("test");
+        
+    }
+
     println!("Processing code...\n\n");
 
     let folder_name = "generated_docs";
