@@ -6,6 +6,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::vec::Vec;
+use std::panic;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[allow(non_camel_case_types)]
@@ -58,10 +59,17 @@ impl GptRequest {
             .await
             .map_err(|e| GptError::ApiError(format!("response error: {}", e)))?;
         let body: Value = serde_json::from_str(&body)?;
-        // dbg!(&body);
 
         let mut responses: Vec<String> = vec![];
-        for data in body["choices"].as_array().unwrap() {
+        for data in match body["choices"].as_array() {
+           Some(x) => {x},
+           None => {
+            panic::set_hook(Box::new(|_| {
+                println!("Recieved bad response! Check if you have a valid API key");
+            }));
+            panic!("test");
+           },
+        } {
             let content = &data["message"]["content"];
             if raw_response {
                 responses.push(content.to_string()
