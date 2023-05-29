@@ -9,3 +9,4 @@ web/tsconfig.json
 test_*
 src/v0.0.1_chat.rs
 Session.vim
+demo

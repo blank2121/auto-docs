@@ -64,8 +64,10 @@ impl GptRequest {
         for data in match body["choices"].as_array() {
            Some(x) => {x},
            None => {
+            println!("Received bad response! Check if you have a valid API key (often the problem)");
+            println!("{}", body);
             panic::set_hook(Box::new(|_| {
-                println!("Recieved bad response! Check if you have a valid API key");
+                println!("");
             }));
             panic!("test");
            },

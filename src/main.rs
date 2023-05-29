@@ -14,9 +14,13 @@ use std::panic;
 #[derive(StructOpt, Debug)]
 #[structopt(name = "auto-docs")]
 struct Opt {
-    /// Generate base auto_docs.yaml file
+    /// Generate base auto_docs.yaml file for documentation
     #[structopt(short = "c", long = "config")]
-    use_config: bool,
+    docs_config: bool,
+
+    /// Generates base auto_docs.yaml file for code summary
+    #[structopt(short = "s", long = "summary")]
+    summary_config: bool,
 
     /// Changes working directory for auto-docs
     #[structopt(short = "p", long = "path", parse(from_os_str))]
@@ -68,6 +72,36 @@ fn create_auto_docs_file() -> std::io::Result<()> {
 # powered by chatgpt-3.5-turbo so promts are like asking a chat.openai.com
 # the prompt will be exactly what is in the system prompt so be specific
 
+system_prompt: \"When you are giving code, you will respond with by only summarizing the code.
+  Firstly, write the summary in markdown and break up meaningful sections of the code as
+  you see fit. For example, include an overall summary of the code at the top and then use a
+  line seperator to then say the point of the code. Finally, avoid summarizing and describing
+  specific lines of code.\"
+
+# for summary, don't use this attr. can be used but not recommended.
+lang_specific_information: \"none\"
+ignore_files:
+  - 
+
+# for overall summary, don't use either of these two attr.
+# can be used but not recommended.
+function_description_length: \"\"
+include_overall_summary: false
+
+api_key: \"\"";
+
+    file.write_all(contents.as_bytes())?;
+
+    Ok(())
+}
+
+fn create_summary_file() -> std::io::Result<()> {
+    let mut file = File::create("auto_docs.yaml")?;
+
+    let contents = "# Configuration file for My Documentation Project
+# powered by chatgpt-3.5-turbo so promts are like asking a chat.openai.com
+# the prompt will be exactly what is in the system prompt so be specific
+
 system_prompt: \"here is my definition of documentation and how it should be made if you are asked
   to make documentation. Firstly, you will only respond with the documentation and this is how you
   will produce the documentation. In markdown, make a h2 title for the function name and underneath
@@ -95,10 +129,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if opt.path.is_some() {
         set_current_dir(opt.path.unwrap()).expect("Could not change DIR");
     }
-    if opt.use_config {
+    if opt.docs_config {
         create_auto_docs_file().expect("Could not create config file");
         println!("\nCreated base auto_docs.yaml file!");
         return Ok(());
+    } else if opt.summary_config {
+        create_summary_file().expect("Could not create config file");
+        println!("\nCreated base auto_docs.yaml file!");
+        return Ok(());    
     }
 
     let (system_config, api_key): (chat::Config, String) = match chat::Config::load_file(
@@ -153,7 +191,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         
     }
 
-    println!("Processing code...\n\n");
+    println!("Processing code...\n");
 
     let folder_name = "generated_docs";
     if !folder_exists(folder_name) {
@@ -203,3 +241,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Finished!!!");
     Ok(())
 }
+
+
