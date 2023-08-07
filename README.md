@@ -75,6 +75,3 @@ Take note of the ```lang_specific_information``` field. It is set to none by def
 lang_specific_information: "If you recieve a configuation toml file, write a brief
 description of the app via the information provided in the file. Make sure to write in in markdown."
 ```
-## Feedback
-
-If you have any feedback, please reach out to me at winstonwalter07@gmail.com
